@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<head>
+<style>
+    .button{
+        padding:15px;
+        border:1px solid;
+        display: inline-block;
+        cursor:pointer;
+    }
+    .red{
+        border-color:red;
+    }
+    .blue{
+        border-color:blue;
+    }
+    .painting{
+        border:1px solid #d3d3d3;
+        display:block;
+    }
+</style>
+<script type="text/javascript">
+
+    class Painting
+    {
+        constructor(canvasId, dispatcher){
+            this.canvasId = canvasId;
+            this.dispatcher = dispatcher;
+        }
+
+
+        display(){
+            var c = document.getElementById(this.canvasId);
+            var ctx = c.getContext("2d");
+            ctx.clearRect(0, 0, c.width, c.height);
+            ctx.save();
+            ctx.beginPath();
+            
+            this.dispatcher.display(ctx);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+    }
+
+
+    class Cashier{
+
+        constructor(id,itemsPerSecond){
+            this.id = id;
+            this.itemsPerSecond = itemsPerSecond; 
+            this.queue = [];
+        }
+
+        getId(){
+            return this.id;
+        }
+
+        getQueue(){
+            return this.queue;
+        }
+
+        addtoQueue(client){
+            this.queue.push(client);
+        }
+
+        processQueue(){
+            if(this.queue.length>0){
+                this.queue[0].decreaseRemainingItems(this.itemsPerSecond);
+                if(!this.queue[0].hasRemainingItems()){
+                    this.queue.shift();
+                }
+            }
+            
+        }
+
+        getRemainingTime(){
+            if(!this.queue.length){
+                return 0;
+            }
+            return this.queue.reduce(function(sum,client){return new Client(sum.itemsCount+client.itemsCount);},new Client(0)).itemsCount / this.itemsPerSecond;
+        }
+
+        display(ctx){
+            ctx.fillStyle = "red";
+            ctx.rect(10,10,50,50);
+            ctx.font = "15px Arial";
+            ctx.fillText(Math.round(this.itemsPerSecond*100)/100, 20, 30);
+            //console.log("cashier " + this.id);
+            ctx.save();
+            this.queue.forEach(function(client){
+                ctx.translate(0,60);
+                client.display(ctx);
+            });
+            ctx.restore();
+        }
+
+    }
+
+
+    class Dispatcher{
+        constructor(){
+            this.cashiers = [];
+        }
+
+        getCashiers(){
+            return this.cashiers;
+        }
+
+        addCashier(cashier){
+            this.cashiers.push(cashier);
+        }
+
+        removeCashier(){
+            //look for empty cashier
+            var that = this;
+            this.cashiers.forEach(function(cashier,index,cashiers){
+                if(cashier.getQueue().length==0){
+                    cashiers.splice(index,1);
+                    return;
+                }
+            });
+        }
+
+        getShortestQueue(){
+            var tmp = this.cashiers.concat().sort(function(c1,c2){
+                return c1.getRemainingTime()-c2.getRemainingTime();
+            });
+            return tmp[0];
+        }
+
+        pushClient(client){
+            this.getShortestQueue().addtoQueue(client);
+        }
+
+        wait(){
+            this.cashiers.forEach(function(cashier){
+                cashier.processQueue();
+            });
+        }
+
+        display(ctx){
+            this.cashiers.forEach(function(cashier){
+                cashier.display(ctx);
+                ctx.translate(60, 0);
+            });
+        }
+
+    }
+
+    class Client{
+        constructor(itemsCount){
+            this.itemsCount = itemsCount;
+        }
+
+        decreaseRemainingItems(amount){
+            this.itemsCount-=amount;
+        }
+
+        hasRemainingItems(){
+            return this.itemsCount>0;
+        }
+
+        display(ctx){
+            ctx.fillStyle = "blue";
+            ctx.rect(10,10,50,50);
+            ctx.font = "15px Arial";
+            ctx.fillText(Math.round(this.itemsCount), 20, 30);
+            //console.log(this.itemsCount);
+        }
+
+    }
+</script>
+
+</head>
+
+
+<body>
+    <div id="control">
+    <span id="morecashier" class="button red">+</span>
+    <span id="lesscashier" class="button red">-</span>
+    <span id="moreclient" class="button blue">+</span>
+    <span id="lessclient" class="button blue">-</span>
+    </div>
+    <canvas id="display" width="800" height="1000" class="painting">
+    </canvas>
+    
+    <script>
+        let captain = new Dispatcher();
+        let clientFrequencyId;
+        let clientFrequency=1000;
+        let painting = new Painting("display",captain);
+        for(i=1;i<5;i++){
+            captain.addCashier(new Cashier(captain.getCashiers().length,Math.random()*5));
+        }
+        setInterval(function(){captain.wait();},300);
+        setInterval(function(){painting.display();},300);
+        clientFrequencyId = setInterval(function(){captain.pushClient(new Client(Math.floor(Math.random()*50)));},clientFrequency);
+        
+
+        document.getElementById('morecashier').addEventListener('click',function(){
+            captain.addCashier(new Cashier(captain.getCashiers().length,Math.random()*5));});
+        document.getElementById('lesscashier').addEventListener('click',function(){
+            captain.removeCashier();});
+        document.getElementById('moreclient').addEventListener('click',function(){
+            clearInterval(clientFrequencyId);
+            clientFrequency-=100;
+            clientFrequencyId = setInterval(function(){captain.pushClient(new Client(Math.floor(Math.random()*50)));},clientFrequency);
+            });
+        document.getElementById('lessclient').addEventListener('click',function(){
+            clearInterval(clientFrequencyId);
+            clientFrequency+=100;
+            clientFrequencyId = setInterval(function(){captain.pushClient(new Client(Math.floor(Math.random()*50)));},clientFrequency);
+            });
+    </script>
+
+
+
+</body>
+
